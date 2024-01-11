@@ -1,7 +1,7 @@
 Summary: The Reliable Event Logging Protocol library
 Name: librelp
 Version: 1.10.0
-Release: 4%{?dist}
+Release: 5%{?dist}
 License: GPLv3+
 URL: http://www.rsyslog.com/
 Source0: http://download.rsyslog.com/%{name}/%{name}-%{version}.tar.gz
@@ -59,6 +59,10 @@ rm $RPM_BUILD_ROOT/%{_libdir}/*.la
 %{_libdir}/pkgconfig/relp.pc
 
 %changelog
+* Wed Aug 02 2023 Attila Lakatos <alakatos@redhat.com> - 1.10.0-5
+- Rebuild
+  resolves: rhbz#2227723
+
 * Fri Aug 06 2021 Attila Lakatos <alakatos@redhat.com> - 1.10.0-4
 - Replace GNUTLS_SHUT_RDWR by GNUTLS_SHUT_WR when ending TLS connections
   resolves: rhbz#1990735
