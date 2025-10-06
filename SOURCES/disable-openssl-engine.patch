@@ -1,0 +1,21 @@
+diff -up librelp-1.11.0/src/tcp.c.orig librelp-1.11.0/src/tcp.c
+--- librelp-1.11.0/src/tcp.c.orig	2024-08-15 08:31:29.699002010 +0200
++++ librelp-1.11.0/src/tcp.c	2024-08-15 08:31:46.552178361 +0200
+@@ -69,7 +69,7 @@
+ #	if OPENSSL_VERSION_NUMBER >= 0x30000000L && !defined(LIBRESSL_VERSION_NUMBER)
+ #		include <openssl/bioerr.h>
+ #	endif
+-#	include <openssl/engine.h>
++// #	include <openssl/engine.h>
+ /* OpenSSL API differences */
+ #	if OPENSSL_VERSION_NUMBER >= 0x10100000L
+ #		define RSYSLOG_X509_NAME_oneline(X509CERT) X509_get_subject_name(X509CERT)
+@@ -1989,7 +1989,7 @@ relpTcpExitTLS_ossl(void)
+ 			SSL_CTX_free(ctx);
+ 			ctx = NULL;
+ 		}
+-		ENGINE_cleanup();
++		// ENGINE_cleanup();
+ 		ERR_free_strings();
+ 		EVP_cleanup();
+ 		CRYPTO_cleanup_all_ex_data();
