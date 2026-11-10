@@ -1,0 +1,73 @@
+From 940cd1835206ae124e8d213a26723464a949d8c1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Renaud=20M=C3=A9trich?= <rmetrich@redhat.com>
+Date: Wed, 1 Jul 2026 13:31:09 +0200
+Subject: [PATCH] openssl: fix fd double-close in relpTcpDestruct
+
+relpTcpDestruct() closed the socket fd before calling
+relpTcpDestructTLS(), causing SSL_shutdown() to operate on an
+already-closed fd. Additionally, BIO_new_socket() was called with
+BIO_CLOSE, making SSL_free() close the fd a second time via the BIO
+destructor. Strace on every TLS teardown:
+
+  shutdown(12, SHUT_RDWR) = 0
+  close(12)               = 0           # relpTcpDestruct
+  write(12, ...)          = -1 EBADF    # SSL_shutdown on closed fd
+  close(12)               = -1 EBADF    # SSL_free BIO_CLOSE
+
+Fix:
+- Move relpTcpDestructTLS() before the socket close so SSL_shutdown()
+  can send the close_notify on a valid fd.
+- Change BIO_new_socket() from BIO_CLOSE to BIO_NOCLOSE so SSL_free()
+  does not close the fd.
+- Add conn = NULL after SSL_set_bio() to prevent double-free in the
+  error path.
+---
+ src/tcp.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/src/tcp.c b/src/tcp.c
+--- a/src/tcp.c
++++ b/src/tcp.c
+@@ -781,6 +781,8 @@
+ 	pThis = *ppThis;
+ 	RELPOBJ_assert(pThis, Tcp);
+ 
++	relpTcpDestructTLS(pThis);
++
+ 	if(pThis->sock != -1) {
+ 		shutdown(pThis->sock, SHUT_RDWR);
+ 		close(pThis->sock);
+@@ -795,7 +797,6 @@
+ 		}
+ 		free(pThis->socks);
+ 	}
+-	relpTcpDestructTLS(pThis);
+ 
+ 	free(pThis->pRemHostIP);
+ 	free(pThis->pRemHostName);
+@@ -1770,7 +1771,7 @@
+ 	pThis->sslState = osslServer;
+ 
+ 	/* Create BIO from ptcp socket! */
+-	client = BIO_new_socket(pThis->sock, BIO_CLOSE /*BIO_NOCLOSE*/);
++	client = BIO_new_socket(pThis->sock, BIO_NOCLOSE);
+ 	pThis->pEngine->dbgprint((char*)"relpTcpAcceptConnReqInitTLS_ossl: Init client BIO[%p] done\n", (void *)client);
+ 
+ 	/* Set debug Callback for client BIO as well! */
+@@ -1863,7 +1864,7 @@
+ 	pThis->sslState = osslClient;
+ 
+ 	/* Create BIO from ptcp socket! */
+-	conn = BIO_new_socket(pThis->sock, BIO_CLOSE /*BIO_NOCLOSE*/);
++	conn = BIO_new_socket(pThis->sock, BIO_NOCLOSE);
+ 	pThis->pEngine->dbgprint((char*)"relpTcpConnectTLSInit: Init conn BIO[%p] done\n", (void *)conn);
+ 
+ 	/* Set debug Callback for client BIO as well! */
+@@ -1874,6 +1875,7 @@
+ BIO_set_nbio( conn, 1 );
+ 
+ 	SSL_set_bio(pThis->ssl, conn, conn);
++	conn = NULL;
+ 	SSL_set_connect_state(pThis->ssl); /*sets ssl to work in client mode.*/
+ 
+ 	/* Perform the TLS handshake */

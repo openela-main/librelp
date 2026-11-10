@@ -1,7 +1,7 @@
 Summary: The Reliable Event Logging Protocol library
 Name: librelp
 Version: 1.10.0
-Release: 5%{?dist}
+Release: 7%{?dist}
 License: GPLv3+
 URL: http://www.rsyslog.com/
 Source0: http://download.rsyslog.com/%{name}/%{name}-%{version}.tar.gz
@@ -9,6 +9,11 @@ BuildRequires: gnutls-devel >= 1.4.0
 
 Patch0: librelp-1.10.0-rhbz1972067-relpEngineSetTLSLibByName.patch
 Patch1: librelp-1.10.0-crypto-compliance.patch
+Patch2: fix-openssl-fd-double-close.patch
+
+# https://github.com/rsyslog/librelp/commit/9bf89ca142bc89d5bf29fc9a437187dd0bffaaa9
+# Resolves: RHEL-192631
+Patch3: RHEL-192631-fix-ossl-ssl-new-ordering.patch
 
 %description
 Librelp is an easy to use library for the RELP protocol. RELP (stands
@@ -33,8 +38,10 @@ to develop applications using librelp.
 
 %prep
 %setup -q
-%patch0 -p1 -b .tls-by-name
-%patch1 -p1 -b .crypto-compliance
+%patch -P 0 -p1 -b .tls-by-name
+%patch -P 1 -p1 -b .crypto-compliance
+%patch -P 2 -p1
+%patch -P 3 -p1
 
 %build
 autoreconf -ivf
@@ -59,6 +66,14 @@ rm $RPM_BUILD_ROOT/%{_libdir}/*.la
 %{_libdir}/pkgconfig/relp.pc
 
 %changelog
+* Thu Jul 09 2026 Attila Lakatos <alakatos@redhat.com> - 1.10.0-7
+- Backport: fix SSL_CONF_cmd/SSL_new ordering in OpenSSL client connect path
+  Resolves: RHEL-192631
+
+* Thu Jul 09 2026 Attila Lakatos <alakatos@redhat.com> - 1.10.0-6
+- Backport: fix OpenSSL fd double-close in TLS teardown
+  Resolves: RHEL-192630
+
 * Wed Aug 02 2023 Attila Lakatos <alakatos@redhat.com> - 1.10.0-5
 - Rebuild
   resolves: rhbz#2227723
