@@ -1,12 +1,14 @@
 Summary: The Reliable Event Logging Protocol library
 Name: librelp
 Version: 1.11.0
-Release: 7%{?dist}
+Release: 9%{?dist}
 License: GPL-3.0-or-later
 URL: http://www.rsyslog.com/
 Source0: http://download.rsyslog.com/%{name}/%{name}-%{version}.tar.gz
 
 Patch0: disable-openssl-engine.patch
+Patch1: fix-openssl-fd-double-close.patch
+Patch2: fix-ossl-ssl-new-ordering.patch
 
 %description
 Librelp is an easy to use library for the RELP protocol. RELP (stands
@@ -33,6 +35,8 @@ to develop applications using librelp.
 %setup -q
 
 %patch -P 0 -p1
+%patch -P 1 -p1
+%patch -P 2 -p1
 
 %build
 autoreconf -ivf
@@ -57,6 +61,14 @@ rm $RPM_BUILD_ROOT/%{_libdir}/*.la
 %{_libdir}/pkgconfig/relp.pc
 
 %changelog
+* Thu Jul 09 2026 Attila Lakatos <alakatos@redhat.com> - 1.11.0-9
+- Backport: fix SSL_CONF_cmd/SSL_new ordering in OpenSSL client connect path
+  Resolves: RHEL-188813
+
+* Thu Jul 09 2026 Attila Lakatos <alakatos@redhat.com> - 1.11.0-8
+- Backport: fix OpenSSL fd double-close in TLS teardown
+  Resolves: RHEL-191751
+
 * Tue Oct 29 2024 Troy Dawson <tdawson@redhat.com> - 1.11.0-7
 - Bump release for October 2024 mass rebuild:
   Resolves: RHEL-64018
@@ -199,22 +211,22 @@ rm $RPM_BUILD_ROOT/%{_libdir}/*.la
 * Wed Nov 21 2012 Tomas Heinrich <theinric@redhat.com> - 1.0.1-1
 - upgrade to upstream version 1.0.1
 
-* Thu Jul 19 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0.0-4
+* Thu Jul 19 2012 Fedora Release Engineering <releng@fedoraproject.org> - 1.0.0-4
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
 
-* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0.0-3
+* Fri Jan 13 2012 Fedora Release Engineering <releng@fedoraproject.org> - 1.0.0-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
 
-* Tue Feb 08 2011 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0.0-2
+* Tue Feb 08 2011 Fedora Release Engineering <releng@fedoraproject.org> - 1.0.0-2
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_15_Mass_Rebuild
 
 * Thu Jul 15 2010 Tomas Heinrich <theinric@redhat.com> - 1.0.0-1
 - upgrade to upstream version 1.0.0
 
-* Sat Jul 25 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0.1.1-4
+* Sat Jul 25 2009 Fedora Release Engineering <releng@fedoraproject.org> - 0.1.1-4
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_12_Mass_Rebuild
 
-* Wed Feb 25 2009 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 0.1.1-3
+* Wed Feb 25 2009 Fedora Release Engineering <releng@fedoraproject.org> - 0.1.1-3
 - Rebuilt for https://fedoraproject.org/wiki/Fedora_11_Mass_Rebuild
 
 * Wed May  7 2008 Tomas Heinrich <theinric@redhat.com> 0.1.1-2

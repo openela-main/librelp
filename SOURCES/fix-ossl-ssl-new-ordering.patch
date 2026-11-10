@@ -1,0 +1,64 @@
+From 9bf89ca142bc89d5bf29fc9a437187dd0bffaaa9 Mon Sep 17 00:00:00 2001
+From: Cropi <alakatos@redhat.com>
+Date: Wed, 24 Jun 2026 13:07:05 +0200
+Subject: [PATCH] tcp: fix SSL_CONF_cmd/SSL_new ordering in OpenSSL client
+ connect path
+
+relpTcpConnectTLSInit_ossl() called SSL_new(ctx) before
+relpTcpSetSslConfCmd_ossl(), so SSL_CONF_cmd("Groups", ...) applied via
+tls.tlscfgcmd was updating the SSL_CTX after the SSL object had already
+captured its group list.  On OpenSSL 3.x this caused the client to
+advertise the full default group set (including X25519MLKEM768 on 3.5+)
+regardless of any Groups restriction in tlsConfigCmd.
+
+Move pThis->sslState = osslClient and relpTcpSetSslConfCmd_ossl() to
+before SSL_new() so the SSL object inherits the correctly configured
+SSL_CTX.  relpTcpTLSSetPrio() stays after SSL_new() because it operates
+on pThis->ssl via SSL_set_cipher_list().
+
+The server listen path (relpTcpLstnInitTLS_ossl) already applied
+SSL_CONF_cmd to the SSL_CTX before any SSL_new() calls; this brings the
+client connect path into the same order.
+
+Signed-off-by: Cropi <alakatos@redhat.com>
+---
+ src/tcp.c | 15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/src/tcp.c b/src/tcp.c
+--- a/src/tcp.c
++++ b/src/tcp.c
+@@ -1879,6 +1879,15 @@
+ 	/*if we reach this point we are in tls mode */
+ 	pThis->pEngine->dbgprint((char*)"relpTcpConnectTLSInit: TLS Mode\n");
+ 
++	/* set before relpTcpSetSslConfCmd_ossl: tlsConfigCmd may contain
++	 * flag-restricted commands that require SSL_CONF_FLAG_CLIENT */
++	pThis->sslState = osslClient;
++
++	/* SSL_CONF_cmd targets the SSL_CTX; SSL_new() snapshots the SSL_CTX's
++	 * group list at construction time, so this must run before SSL_new()
++	 * or the SSL object keeps the default groups set by SSL_CTX_new() */
++	CHKRet(relpTcpSetSslConfCmd_ossl(pThis, pThis->tlsConfigCmd));
++
+ 	if(!(pThis->ssl = SSL_new(ctx))) {
+ 		relpTcpLastSSLErrorMsg(0, pThis, "relpTcpConnectTLSInit");
+ 		ABORT_FINALIZE(RELP_RET_IO_ERR);
+@@ -1894,17 +1903,11 @@
+ 	} else
+ 		pThis->authmode = eRelpAuthMode_None;
+ 
+-	/* Set TLS Options if configured */
+-	CHKRet(relpTcpSetSslConfCmd_ossl(pThis, pThis->tlsConfigCmd));
+-
+ 	/* Set TLS Priority Options */
+ 	CHKRet(relpTcpTLSSetPrio(pThis));
+ 
+ 	SSL_set_ex_data(pThis->ssl, 0, (void*)pThis);
+ 
+-	/*set client state */
+-	pThis->sslState = osslClient;
+-
+ 	/* Create BIO from ptcp socket! */
+ 	conn = BIO_new_socket(pThis->sock, BIO_NOCLOSE);
+ 	pThis->pEngine->dbgprint((char*)"relpTcpConnectTLSInit: Init conn BIO[%p] done\n", (void *)conn);
